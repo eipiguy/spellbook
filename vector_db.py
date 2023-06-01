@@ -54,3 +54,13 @@ vectordb.persist()
 
 dt.append(time.time() - st)
 print(f'Wrote Database: {dt[-1]} seconds.')
+print(f'Query tests ...') 
+st = time.time()
+
+query = "What did the president say about Ketanji Brown Jackson"
+print(query)
+docs = vectordb.similarity_search(query)
+print(docs[0].page_content)
+
+dt.append(time.time() - st)
+print(f'Queries Run: {dt[-1]} seconds.')
