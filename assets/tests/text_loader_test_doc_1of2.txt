@@ -1,0 +1,6 @@
+"This" is the first word, of the first sentence of the first line of this text document used for testing the text loader functionality. I'll add this second sentence just so there are two sentences on the first line.
+Now I'll start a new line, but not a new paragraph. Some parsers look for 2 line breaks before calling it a paragraph change. I wonder what will happen if I put in backslashes in text? Like \n for a newline. Will it display as a backslash properly?
+
+Now I'll finish off with a short new paragraph. Maybe I'll add a few non-english characters to make sure unicode works. Lets try emoji 😊💕🤣, and then maybe a few random characters №>[}⌈é¥©]. What do you think?
+
+Did that all come through ok?
