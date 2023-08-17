@@ -1,10 +1,9 @@
 import unittest
 from os import path
 
-from spellbook import *
+from loader import *
 
 this_dir = path.dirname( path.realpath( __file__ ) )
-
 ROOT_TEST_DIR = path.join(this_dir, 'assets', 'tests')
 
 class TestTxtLoader(unittest.TestCase):

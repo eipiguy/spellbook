@@ -82,6 +82,11 @@ subgraph Memory
 end
 ```
 
+## Models
+
+- Retrieval: [BAAI/bge-large-en]()
+- Chat: [upstage/Llama-2-70b-instruct-v2]()
+
 ## Goals
 
 What is the bare minimum it takes to have a "usable" result? Without an off ramp you're investing in a new lifestyle.
@@ -111,13 +116,13 @@ First words, then lists, then diagrams. Think big and prune. Tasks are better th
 
 Only **schedule** what is necessary. Ideas go in an "IDEAS.md" file, not the planned road-map. Once you've got goals, *then* select tasks from the pool of ideas.
 
-1. [ ] Agent Setup: Selection: Summary (Reflection)
-2. [ ] Query Formatting: Reflection
-3. [ ] Query Formatting: Retrieval
-4. [ ] Token Statistics
-5. [ ] GraphChat Interface: Memory Hierarchy
-6. [ ] GraphChat Interface: Query alteration and selection
-7. [ ] Query Formatting: Planning
+- [ ] Finish OOP Refactor
+- [ ] Query Formatting: Reflection
+- [ ] Query Formatting: Retrieval
+- [ ] Token Statistics
+- [ ] GraphChat Interface: Memory Hierarchy
+- [ ] GraphChat Interface: Query alteration and selection
+- [ ] Query Formatting: Planning
 
 ## Testing
 
