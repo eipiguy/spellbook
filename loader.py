@@ -129,8 +129,11 @@ class SpellbookLoader:
 
 			for i in range(len(ext_tokens)):
 				if( self.token_ids[i] != last_source ):
-					print(f"Embedding {i-last_i} splits of {last_source}.")
+					num_splits = cur_source_split
+					print(f"Embedding {num_splits} splits of {last_source}.")
 					st = time.time()
+					for j in range(num_splits):
+						self.token_ids[last_i+j] += f"-{num_splits}"
 					self.collection.add(
 						ids = self.token_ids[last_i:i],
 						documents = [ token.page_content for token in ext_tokens[last_i:i] ],
@@ -142,7 +145,7 @@ class SpellbookLoader:
 					last_source = self.token_ids[i]
 					last_i = i
 
-				self.token_ids[i] = f"{self.token_ids[i]}_{cur_source_split}_{ext_tokens[i].metadata['modified']}"
+				self.token_ids[i] = f"{self.token_ids[i]}_{ext_tokens[i].metadata['modified']}_{cur_source_split}"
 				cur_source_split += 1
 
 			print(f"All {ext} files embedded.\n")
