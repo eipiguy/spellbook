@@ -3,37 +3,54 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer, Bits
 
 from os import path
 
+from loader import *
+
 THIS_DIR = path.dirname( path.realpath( __file__ ) )
 ASSET_DIR = path.join(THIS_DIR, 'assets')
 MODEL_DIR = path.join(THIS_DIR, 'models')
 EMBED_DIR = path.join(THIS_DIR, 'embeds')
 
-class SpellbookInterface:	
-	def template_chat(self, user, assistant = "", system = ""):
-		system_template = ''
-		if( system ):
-			system_template = self.system_template.format(system=system)
-		user_template = self.system_template.format(user=user)
-		assistant_template = self.assistant_template.format(assistant=assistant)
+class SpellbookInterface:
 
-		return system_template + user_template + assistant_template
+	def format_prompt( self, author, prompt ):
+		return self.prompt_template.format( author = author, content = prompt ) + self.prompt_delim
 
-	def __init__(self):
-		
+
+	def format_qa( self, qa_list ):
+		qa_prompt=""
+		for qa in qa_list:
+			qa_prompt += self.format_prompt( self.user_title, qa[0] )
+			qa_prompt += self.format_prompt( self.llm_title, qa[1] )
+		return qa_prompt
+
+
+	def format_retrieval( self, raw_data ):
+		retrieval_prompt = "The following information was retrieved in association with the given query. It may be useful, or it may be extraneous. Refer back to it only if it is prudent.\n\n"
+
+		return self.format_prompt( self.self_title, retrieval_prompt + raw_data )
+
+
+	def __init__( self, retriever ):
+
+		self.retriever = retriever
+
+		# Interface Chat Model Setup
+
 		#self.chat_model_name = "Open-Orca/OpenOrca-Platypus2-13B"
 		self.chat_model_name = "stabilityai/StableBeluga-7B"
 
-		self.prompt_template = """\
-### {author}:
-{content}"""
+		self.prompt_template = '\n### {author}:\n{content}'
+		self.user_title = 'User'
+		self.llm_title = 'Assistant'
+		self.self_title = 'System'
 		self.prompt_delim = '\n\n'
 
 		quantization_config = BitsAndBytesConfig(
 			llm_int8_enable_fp32_cpu_offload = True,
-			load_in_8bit=True,
-			bnb_8bit_quant_type="nf8",
-			bnb_8bit_use_double_quant=True,
-			bnb_8bit_compute_dtype=torch.bfloat16
+			load_in_8bit = True,
+			bnb_8bit_quant_type = "nf8",
+			bnb_8bit_use_double_quant = True,
+			bnb_8bit_compute_dtype = torch.bfloat16
 		)
 		self.chat_tokenizer = AutoTokenizer.from_pretrained( self.chat_model_name, cache_dir = MODEL_DIR )
 		self.chat_model = AutoModelForCausalLM.from_pretrained(
@@ -47,10 +64,11 @@ class SpellbookInterface:
 			rope_scaling = {"type": "dynamic", "factor": 2} # allows handling of longer inputs
 		)
 
+
 	def chat(self):
-		user_title = 'User'
-		llm_title = 'Assistant'
+
 		memory = []
+		data = []
 		streamer = TextStreamer(
 			self.chat_tokenizer,
 			skip_prompt = True,
@@ -58,21 +76,48 @@ class SpellbookInterface:
 		)
 
 		while True:
-			query = input(f"### {user_title}:\n")
+			query = input(f"### {self.user_title}:\n")
 
-			# Format recent memory data
-			system_prompt = self.prompt_template.format( author = 'System', content= '' ) + self.prompt_delim
-			memory_prompt=""
-			for i,qa in enumerate(memory):
-				memory_prompt += self.prompt_template.format( author = user_title, content = qa[0] ) + self.prompt_delim
-				memory_prompt += self.prompt_template.format( author = llm_title, content = qa[1] ) + self.prompt_delim
+			# Retrieve any new associated data from the direct query.
+			raw_relevant = self.retriever.retrieve(query)
+			data.append( raw_relevant )
 
-			# Make the templated input for the LLM
-			prompt = system_prompt + memory_prompt + self.prompt_template.format( author = user_title, content = query ) + self.prompt_delim + f"### {llm_title}:\n"
+			# Reflect:
+			# - Context
+			# - Capabilities
+			# - Desires
+			# - Current Strategies
 
-			inputs = self.chat_tokenizer( prompt, return_tensors = "pt" ).to( self.chat_model.device )
+			# Self-Critique:
+			# - Strengths/Weaknesses
+			# - Play to strengths, strengthen weaknesses
+			# - Most things take a lot of small, tedious steps. When learning, lean into your own aversions.
 
-			print(f"\n### {llm_title}:")
+			# Plan (Resource Management):
+			# - Progress towards strategies
+			# - Return on investment graph
+			# - Cost/benefit for each
+			# - Sort and pursue
+
+			# Formatting
+			system_prompt = self.format_retrieval(data[-1])
+
+			qa_prompt = self.format_qa(memory)
+			final_prompt = system_prompt + qa_prompt + \
+				self.format_prompt( self.user_title, query ) + \
+				f"### {self.llm_title}:\n"
+
+			# Generate response
+			inputs = self.chat_tokenizer(
+				final_prompt,
+				return_tensors = "pt"
+			).to( self.chat_model.device )
+
+			# Info presented to user
+			print( system_prompt )
+			print(f"\n### {self.llm_title}:")
+
+
 			response = self.chat_model.generate(
 				**inputs,
 				streamer = streamer,
@@ -88,7 +133,14 @@ class SpellbookInterface:
 				skip_special_tokens = True
 			)
 			print()
-			memory.append([query,completed_prompt.split(f"{llm_title}:\n")[-1]])
+
+			# Add the question/answer into memory
+			memory.append(
+				[
+					query,
+					completed_prompt.split(f"{self.llm_title}:\n")[-1]
+				]
+			)
 
 
 if __name__ == '__main__':

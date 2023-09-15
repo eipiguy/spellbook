@@ -1,15 +1,3 @@
----
-author: eipiguy
-project: Spellbook
-title: Spellbook
-requires: []
-used_by: []
-components: []
-date: 2023-07-24
----
-
-All things change, and all things in this document and its template will evolve over time. Keep records when things go unexpectedly.
-
 ## Current Intent
 
 What's the idea? What are you currently trying to do? What are you trying to get out of the whole thing?
@@ -161,3 +149,9 @@ If you need a thing go [to the source](src)!
 [langchain]: https://www.langchain.com/
 [hugface]: https://huggingface.co/
 [src]: www.alwayslistyoursources.com
+
+## Project Title
+
+All things change, and all things in this document and its template will evolve over time. Keep records when things go unexpectedly.
+
+
