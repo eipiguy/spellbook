@@ -31,9 +31,15 @@ class SpellbookLoader:
 			'py': PythonCodeTextSplitter }
 
 		self.embedding_model_name = "BAAI/bge-small-en"
-		self.chunk_size = 250
-		self.chunk_overlap = 50
+		self.chunk_size = 600
+		self.chunk_overlap = 400
 		self.length_function = len
+
+		self.retrieval_chunks = 10
+
+		data_length = ( self.chunk_size * self.retrieval_chunks ) \
+			- ( self.chunk_overlap * (self.retrieval_chunks - 1) )
+		print(f"Retrieval data length = {data_length}")
 
 		# Process given directory
 
@@ -265,7 +271,7 @@ class SpellbookLoader:
 		# Search using embedding model
 		potentials = self.collection.query(
 			query_texts = [query],
-			n_results = 5
+			n_results = self.retrieval_chunks
 			#where={"metadata_field": "is_equal_to_this"},
 			#where_document={"$contains":"search_string"}
 		)
@@ -304,11 +310,11 @@ def combine_snippets(doc_snippets):
 		out_of = snippet[2]
 		content = snippet[3]
 		if check_neighbors( page, split, last_page, last_split, last_out_of ):
-			# append with ellipses
-			combined_content += f"...{content}"
-		else:
 			# combine
 			combined_content = merge_strings( combined_content, content )
+		else:
+			# append with ellipses
+			combined_content += f"\n...\n{content}"
 
 		last_page = page
 		last_split = split
