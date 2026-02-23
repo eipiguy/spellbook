@@ -41,7 +41,7 @@ class SpellbookInterface:
 		response_data = self.model.generate(
 			**inputs,
 			streamer = self.streamer,
-			max_new_tokens = 32768 # float('inf')
+			max_new_tokens = 1024 # float('inf')
 		)
 
 		# Separate thinking tokens from the response.

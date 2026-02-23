@@ -7,7 +7,7 @@ from header import *
 DEBUG = ROOT_DEBUG or False
 
 quant_4bit = BitsAndBytesConfig(
-	llm_int4_enable_fp32_cpu_offload = True,
+	llm_int4_enable_fp32_cpu_offload = True, # Use this is GPU RAM is too low.
 	load_in_4bit = True,
 	bnb_4bit_quant_type = "nf4",
 	bnb_4bit_use_double_quant = True,
@@ -15,7 +15,7 @@ quant_4bit = BitsAndBytesConfig(
 )
 
 quant_8bit = BitsAndBytesConfig(
-	llm_int8_enable_fp32_cpu_offload = True,
+	llm_int8_enable_fp32_cpu_offload = True, # Use this is GPU RAM is too low.
 	load_in_8bit = True,
 	bnb_8bit_quant_type = "nf8",
 	bnb_8bit_use_double_quant = True,
@@ -25,10 +25,9 @@ quant_8bit = BitsAndBytesConfig(
 class ModelFrame:
 	def __init__( self, name,
 		quantization = quant_4bit,
-		system = 'System',
-		assistant = 'Assistant',
+		system = 'system',
+		assistant = 'assistant',
 		user = 'user',
-		prompt_format = "### {author}: {content}",
 		delimeter = '\n\n' ):
 
 		# Model Specs
@@ -45,12 +44,13 @@ class ModelFrame:
 
 		model = AutoModelForCausalLM.from_pretrained(
 			self.name,
+			#attn_implementation="flash_attention_2",
 			cache_dir = MODEL_DIR,
 			offload_folder = MODEL_DIR,
-			torch_dtype = float16,
+			dtype = 'auto',
 			low_cpu_mem_usage = True,
-			device_map = "auto",
-			quantization_config = self.quantization
+			device_map = 'auto',
+			#quantization_config = self.quantization
 		)
 
 		tokenizer = AutoTokenizer.from_pretrained( self.name, cache_dir = MODEL_DIR )
@@ -61,13 +61,6 @@ class ModelFrame:
 			skip_special_tokens = True
 		)
 		return [ model, tokenizer, streamer ]
-
-	def format_prompt( self, author, prompt ):
-		return self.prompt_format.format( author = author, content = prompt ) + self.prompt_delim
-
-	def system_prompt( self, prompt ):
-		return self.model_frame.format_prompt( self.model_frame.system, prompt )
-
 
 # 7B Models
 beluga = ModelFrame( 'stabilityai/StableBeluga-7B' )
