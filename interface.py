@@ -1,146 +1,93 @@
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer, BitsAndBytesConfig
 
-from os import path
+from header import *
+from model import ModelFrame, qwen
 
-from loader import *
-
-THIS_DIR = path.dirname( path.realpath( __file__ ) )
-ASSET_DIR = path.join(THIS_DIR, 'assets')
-MODEL_DIR = path.join(THIS_DIR, 'models')
-EMBED_DIR = path.join(THIS_DIR, 'embeds')
+# set this to True to print verbose output
+DEBUG = ROOT_DEBUG or False
 
 class SpellbookInterface:
+	def __init__( self, retriever = None ):
 
-	def format_prompt( self, author, prompt ):
-		return self.prompt_template.format( author = author, content = prompt ) + self.prompt_delim
-
-
-	def format_qa( self, qa_list ):
-		qa_prompt=""
-		for qa in qa_list:
-			qa_prompt += self.format_prompt( self.user_title, qa[0] )
-			qa_prompt += self.format_prompt( self.llm_title, qa[1] )
-		return qa_prompt
-
-
-	def format_retrieval( self, raw_data ):
-		retrieval_prompt = "The following information was retrieved in association with the given query. It may be useful, or it may be extraneous. Refer back to it only if it is prudent.\n\n"
-
-		return self.format_prompt( self.self_title, retrieval_prompt + raw_data )
-
-
-	def __init__( self, retriever ):
-
+		# How data is stored and retrieved from the local directory
 		self.retriever = retriever
 
-		# Interface Chat Model Setup
+		# Message Logs
+		self.messages = []
 
-		#self.chat_model_name = "Open-Orca/OpenOrca-Platypus2-13B"
-		self.chat_model_name = "stabilityai/StableBeluga-7B"
+		# Model Settings
+		self.thinking = False
 
-		self.prompt_template = '\n### {author}:\n{content}'
-		self.user_title = 'User'
-		self.llm_title = 'Assistant'
-		self.self_title = 'System'
-		self.prompt_delim = '\n\n'
+		# Interface chat model
 
-		quantization_config = BitsAndBytesConfig(
-			llm_int8_enable_fp32_cpu_offload = True,
-			load_in_8bit = True,
-			bnb_8bit_quant_type = "nf8",
-			bnb_8bit_use_double_quant = True,
-			bnb_8bit_compute_dtype = torch.bfloat16
+		#self.model_frame = gemma
+		self.model_frame = qwen
+		#self.model_frame = beluga
+
+		# Load all the associated structures
+		self.model, self.tokenizer, self.streamer = self.model_frame.get_model_set()
+
+
+	# Calls an agent directly and collects/displays the response.
+	def generate( self, prompt ):
+
+		# Tokenize the text input
+		inputs = self.tokenizer(
+				[prompt],
+				return_tensors = "pt"
+			).to( self.model.device )
+
+		# Send the prompt tokens to the model
+		# and stream the response to the output
+		response_data = self.model.generate(
+			**inputs,
+			streamer = self.streamer,
+			max_new_tokens = 32768 # float('inf')
 		)
-		self.chat_tokenizer = AutoTokenizer.from_pretrained( self.chat_model_name, cache_dir = MODEL_DIR )
-		self.chat_model = AutoModelForCausalLM.from_pretrained(
-			self.chat_model_name,
-			cache_dir = MODEL_DIR,
-			offload_folder = MODEL_DIR,
-			torch_dtype = torch.float16,
-			low_cpu_mem_usage = True,
-			device_map = "auto",
-			quantization_config = quantization_config,
-			rope_scaling = {"type": "dynamic", "factor": 2} # allows handling of longer inputs
-		)
 
+		# Separate thinking tokens from the response.
 
-	def chat(self):
-
-		memory = []
-		data = []
-		streamer = TextStreamer(
-			self.chat_tokenizer,
+		# Parse the resulting tokens into text
+		response_tokens = response_data[0][len(inputs.input_ids[0]):].tolist() 
+		completed_prompt = self.tokenizer.decode(
+			response_tokens,
 			skip_prompt = True,
 			skip_special_tokens = True
 		)
+		return completed_prompt
+
+	# Pings the user and adds resulting question to the message log
+	def prompt_query( self ):
+
+		# Display user name and wait for a question
+		query = input(f"{self.model_frame.user}:\n")
+
+		# Once the question comes, add it to the message list
+		self.messages.append( { 'role': self.model_frame.user, 'content': query } )
+
+		return
+
+
+	# Format a message log into text for tokenizing.
+	def format_messages( self, messages ):
+		return self.tokenizer.apply_chat_template(
+				messages,
+				tokenize=False,
+				add_generation_prompt=True,
+				enable_thinking=self.thinking # Switches between thinking and non-thinking modes. Default is True.
+			)
+
+
+	# Connect the user and an agent through the terminal output.
+	def chat( self ):
 
 		while True:
-			query = input(f"### {self.user_title}:\n")
-
-			# Retrieve any new associated data from the direct query.
-			raw_relevant = self.retriever.retrieve(query)
-			data.append( raw_relevant )
-
-			# Reflect:
-			# - Context
-			# - Capabilities
-			# - Desires
-			# - Current Strategies
-
-			# Self-Critique:
-			# - Strengths/Weaknesses
-			# - Play to strengths, strengthen weaknesses
-			# - Most things take a lot of small, tedious steps. When learning, lean into your own aversions.
-
-			# Plan (Resource Management):
-			# - Progress towards strategies
-			# - Return on investment graph
-			# - Cost/benefit for each
-			# - Sort and pursue
 
 			# Formatting
-			system_prompt = self.format_retrieval(data[-1])
-
-			qa_prompt = self.format_qa(memory)
-			final_prompt = system_prompt + qa_prompt + \
-				self.format_prompt( self.user_title, query ) + \
-				f"### {self.llm_title}:\n"
+			self.prompt_query()
+			final_prompt = self.format_messages( self.messages )
 
 			# Generate response
-			inputs = self.chat_tokenizer(
-				final_prompt,
-				return_tensors = "pt"
-			).to( self.chat_model.device )
-
-			# Info presented to user
-			print( system_prompt )
-			print(f"\n### {self.llm_title}:")
-
-
-			response = self.chat_model.generate(
-				**inputs,
-				streamer = streamer,
-				use_cache = True,
-				do_sample = True,
-				top_p = 0.95,
-				top_k = 0,
-				max_new_tokens = 1024# float('inf')
-			)
-			completed_prompt = self.chat_tokenizer.decode(
-				response[0],
-				skip_prompt = True,
-				skip_special_tokens = True
-			)
-			print()
-
-			# Add the question/answer into memory
-			memory.append(
-				[
-					query,
-					completed_prompt.split(f"{self.llm_title}:\n")[-1]
-				]
-			)
+			response = self.generate( final_prompt )
 
 
 if __name__ == '__main__':
